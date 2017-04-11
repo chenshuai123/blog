@@ -53,10 +53,21 @@ root@host5:~# tcpdump -ni any tcp port 22 and host not 10.1.0.12 <br />
 好吧，做驱动，抓包抓调用栈，抓包的关键是找到发报的总出口 <br />
 所有的发包都会调用到 __netdev_start_xmit 这个函数，一个回调，看到回调就可以去替换它 <br />
 
-  static inline netdev_tx_t __netdev_start_xmit(const struct net_device_ops *ops, 
-                                                struct sk_buff *skb, struct net_device *dev, 
-                                                bool more) 
-  { 
+    static inline netdev_tx_t __netdev_start_xmit(const struct net_device_ops *ops, 
+                                                  struct sk_buff *skb, struct net_device *dev, 
+                                                  bool more) 
+    { 
           skb->xmit_more = more ? 1 : 0; 
           return ops->ndo_start_xmit(skb, dev); 
-  } 
+    } 
+    public class HelloWorld {
+
+      /**
+      * @param args
+	    */
+	    public static void main(String[] args) {
+		    System.out.println("HelloWorld!");
+
+	    }
+
+    }
