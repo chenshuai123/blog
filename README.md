@@ -10,45 +10,83 @@ neutron l3 agent 和 opendaylight l3 同时开启的问题
 neutron l3 agent 的机制请参考 http://lingxiankong.github.io/blog/2013/11/19/iptables-in-neutron/ <br />
  <br />
 neutron l3 agent 会在控制节点上创建一个名字空间，一般都是qrouter开头 <br />
- <br />
-    root@host1:~# ip netns exec qrouter-5a367e1d-9162-4b90-af5a-ff4655c7571f ip a <br />
-    17: qr-dcedd015-a5: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue state UNKNOWN group default
-    link/ether fa:16:3e:91:5f:a0 brd ff:ff:ff:ff:ff:ff <br />
-    inet 88.88.88.1/24 brd 88.88.88.255 scope global qr-dcedd015-a5 <br />
-     <br />
-    18: qg-5d88ef18-33: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default
-    link/ether fa:16:3e:e3:66:3c brd ff:ff:ff:ff:ff:ff <br />
-    inet 192.168.111.223/32 brd 192.168.111.223 scope global qg-5d88ef18-33 <br />
 
-我从网络节点(host1)上ssh 实例（192.168.111.223），同时在网络节点和计算节点(host5)上开启抓包 <br />
+    root@host1:~# ip netns exec qrouter-5a367e1d-9162-4b90-af5a-ff4655c7571f ip a 
+    17: qr-dcedd015-a5: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue state UNKNOWN group default
+    link/ether fa:16:3e:91:5f:a0 brd ff:ff:ff:ff:ff:ff 
+    inet 88.88.88.1/24 brd 88.88.88.255 scope global qr-dcedd015-a5 
+
+    18: qg-5d88ef18-33: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default
+    link/ether fa:16:3e:e3:66:3c brd ff:ff:ff:ff:ff:ff
+    inet 192.168.111.223/32 brd 192.168.111.223 scope global qg-5d88ef18-33 
+
+我从网络节点(host1)上ssh 实例（192.168.111.223），同时在网络节点(host1)和计算节点(host5)上开启抓包 <br />
  <br />
-网络节点上的抓包，注意这条高亮的报文，这个［R］就是 tcp 中的 rest 报文（复位报文，用来关闭socket，具体含义请自行谷歌百度）<br />
+网络节点上的抓包，注意第5条报文，这个［R］就是 tcp 中的 rest 报文（复位报文，用来关闭socket，具体含义请自行谷歌百度）<br />
+
     root@host1:~# tcpdump -ni any tcp port 22 and host not 10.1.0.12 <br />
     19:25:18.052823 IP 192.168.111.210.17350 > 192.168.111.223.22: Flags [S], <br />
     19:25:18.056965 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [S.], <br />
     19:25:18.057018 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [S.], <br />
     19:25:18.057049 IP 192.168.111.210.17350 > 192.168.111.223.22: Flags [.], ack 1, <br />
-```
     19:25:18.057117 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [R], <br />
-```
     19:25:19.253970 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [S.], <br />
     19:25:19.253970 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [S.], <br />
     19:25:19.254004 IP 192.168.111.210.17350 > 192.168.111.223.22: Flags [R], <br />
 
 
-计算节点的抓包，注意没有［R］报文，但是时间戳不对，一个是18秒，一个是19秒，而且网络节点上是收到，不是发送<br />
-root@host5:~# tcpdump -ni any tcp port 22 and host not 10.1.0.12 <br />
- 9:25:18.028119 IP 192.168.111.210.17350 > 88.88.88.4.22: Flags [S], <br />
-19:25:18.031503 IP 88.88.88.4.22 > 192.168.111.210.17350: Flags [S.], <br />
-19:25:18.031598 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [S.], <br />
-19:25:18.031596 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [S.], <br />
-19:25:19.228699 IP 88.88.88.4.22 > 192.168.111.210.17350: Flags [S.], <br />
-19:25:19.228721 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [S.], <br />
-19:25:19.228699 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [S.], <br />
-19:25:19.228963 IP 192.168.111.210.17350 > 88.88.88.4.22: Flags [R], <br />
+计算节点的抓包，注意［R］报文，但是时间戳不对，网络节点有两个REST，一个是18秒，一个是19秒，而计算节点上只有一个，是19秒，而且计算节点上是收到，不是发送<br />
+    root@host5:~# tcpdump -ni any tcp port 22 and host not 10.1.0.12 <br />
+    19:25:18.028119 IP 192.168.111.210.17350 > 88.88.88.4.22: Flags [S], <br />
+    19:25:18.031503 IP 88.88.88.4.22 > 192.168.111.210.17350: Flags [S.], <br />
+    19:25:18.031598 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [S.], <br />
+    19:25:18.031596 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [S.], <br />
+    19:25:19.228699 IP 88.88.88.4.22 > 192.168.111.210.17350: Flags [S.], <br />
+    19:25:19.228721 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [S.], <br />
+    19:25:19.228699 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [S.], <br />
+    19:25:19.228963 IP 192.168.111.210.17350 > 88.88.88.4.22: Flags [R], <br />
 
 
 这里［S］［S.］是什么？这两个都是tcp三次握手的报文（ssh走的也是tcp协议），S是SYN报文，S. (带一个点的)是SYN＋ACK报文，如下图，就是三次握手的第一个和第二个报文。<br />
+![1.tiff](/images/1.tiff "1.tiff")
+
+
+而且注意，在计算节点上的抓包，竟然是 192.168.111.223 报文，这个是虚拟实例的floating ip，这个IP是在网络节点上qrouter的名字空间里面，为什么在host5上会有？<br />
+
+再看一下 网络节点上名字空间里面的抓包 <br />
+
+名字空间中抓qr的报文, REST报文是19秒<br />
+
+    root@host1:~# ip netns exec qrouter-5a367e1d-9162-4b90-af5a-ff4655c7571f tcpdump -ni qr-dcedd015-a5 tcp port 22
+    19:25:18.052888 IP 192.168.111.210.17350 > 88.88.88.4.22: Flags [S],
+    19:25:19.254026 IP 192.168.111.210.17350 > 88.88.88.4.22: Flags [R], 
+
+
+名字空间抓qg的报，注意第三条报文，也是［R］，而且时间戳也是18秒 <br />
+    root@host1:~# ip netns exec qrouter-5a367e1d-9162-4b90-af5a-ff4655c7571f tcpdump -ni qg-5d88ef18-33 tcp port 22
+    19:25:18.052860 IP 192.168.111.210.17350 > 192.168.111.223.22: Flags [S], 
+    19:25:18.057053 IP 192.168.111.210.17350 > 192.168.111.223.22: Flags [.], 
+    19:25:18.057069 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [R],
+    19:25:19.254007 IP 192.168.111.210.17350 > 192.168.111.223.22: Flags [R], 
+
+
+好了，到这里可以看出来，这个RST报文不是虚拟实例发的，也不是host5（计算节点）发的，是host1(网络节点)上的名字空间中 qg 端口发的。 <br />
+
+那为什么 host5 上为什么会有192.168.111.223 报文？因为 odl l3 的关系，neutron l3 agent 其实提供两个功能，一个是metadata的功能，另一个是提供虚拟实例的租户网络IP和floating ip之间的转换，通过nat来实现，而odl l3 也提供了虚拟机的租户网络IP和floating ip之间的转换，是通过ovs流表来实现，<br />
+
+host5上的ovs流表 <br />
+
+    root@host5:~# ovs-ofctl -O OpenFlow13 dump-flows br-int | grep 88.4
+    cookie=0x0, duration=543.500s, table=20, n_packets=0, n_bytes=0, priority=1024,arp,tun_id=0x43e,arp_tpa=88.88.88.4,arp_op=1 actions=move:NXM_OF_ETH_SRC[]->NXM_OF_ETH_DST[],set_field:fa:16:3e:4b:eb:3c->eth_src,load:0x2->NXM_OF_ARP_OP[],move:NXM_NX_ARP_SHA[]->NXM_NX_ARP_THA[],move:NXM_OF_ARP_SPA[]->NXM_OF_ARP_TPA[],load:0xfa163e4beb3c->NXM_NX_ARP_SHA[],load:0x58585804->NXM_OF_ARP_SPA[],IN_PORT
+    
+    cookie=0x0, duration=517.302s, table=30, n_packets=0, n_bytes=0, priority=1024,ip,in_port=5,nw_dst=192.168.111.223 actions=set_field:88.88.88.4->ip_dst,load:0x43e->NXM_NX_REG3[],goto_table:40
+    cookie=0x0, duration=542.353s, table=40, n_packets=0, n_bytes=0, priority=36001,ip,in_port=7,dl_src=fa:16:3e:4b:eb:3c,nw_src=88.88.88.4 actions=goto_table:50 (浮动ip与租户ip的转换)
+    cookie=0x0, duration=543.363s, table=70, n_packets=70, n_bytes=7622, priority=1024,ip,tun_id=0x43e,nw_dst=88.88.88.4 actions=set_field:fa:16:3e:4b:eb:3c->eth_dst,goto_table:80
+    cookie=0x0, duration=517.301s, table=100, n_packets=2, n_bytes=148, priority=512,ip,tun_id=0x43e,dl_dst=fa:16:3e:91:5f:a0,nw_src=88.88.88.4 actions=set_field:fa:16:3e:74:db:c7->eth_src,dec_ttl,set_field:2c:ab:00:9a:04:37->eth_dst,set_field:192.168.111.223->ip_src,output:5 (租户ip与浮动ip的转换)
+    root@host5:~#
+
+odl l3 的流表在 host5上对虚拟实例的租户网络IP和floating ip进行了转换，报文流程图就是如下 <br />
+![2.tiff](/images/2.tiff "2.tiff")
 
 而openstack only的环境是只走net namespace，也就是说第二条报文（SYN＋ACK）也是走qrouter的名字空间的，但是现在这种场景有什么问题呢？想不出来，咨询了一堆人，没人知道为什么。<br />
 
@@ -185,7 +223,6 @@ root@host5:~# tcpdump -ni any tcp port 22 and host not 10.1.0.12 <br />
                         spin_unlock_bh(&ct->lock);
                         return NF_ACCEPT;
                 }
-```
                 /* Invalid packet */
                 pr_debug("nf_ct_tcp: Invalid dir=%i index=%u ostate=%u\n",
                          dir, get_conntrack_index(th), old_state);
@@ -194,7 +231,6 @@ root@host5:~# tcpdump -ni any tcp port 22 and host not 10.1.0.12 <br />
                         nf_log_packet(net, pf, 0, skb, NULL, NULL, NULL,
                                   "nf_ct_tcp: invalid state ");
                 return -NF_ACCEPT;
-```
 
 
 问题基本上就是 第一条SYN报文走的是网络名字空间，所以会在iptables内创建一条记录用于跟踪状态，而SYN＋ACK报文没有走这个网络名字空间，导致这条记录没有做更新，而ACK报文又进入网络名字空间，由于之前记录的状态是SYN报文已发，它等待的状态是SYN＋ACK的报文，不是ACK，所以iptables就认为这条报文是非法，也就不做改目的IP地址的处理，这样就被直接提交到本地tcp层处理，tcp发现本地没有这个socket，就直接关闭。 <br />
