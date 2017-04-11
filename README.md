@@ -22,7 +22,7 @@ inet 192.168.111.223/32 brd 192.168.111.223 scope global qg-5d88ef18-33 <br />
 
 我从网络节点(host1)上ssh 实例（192.168.111.223），同时在网络节点和计算节点(host5)上开启抓包 <br />
  <br />
-网络节点上的抓包，注意这条红色的报文，这个［R］就是 tcp 中的 rest 报文（复位报文，用来关闭socket，具体含义请自行谷歌百度）<br />
+网络节点上的抓包，注意这条高亮的报文，这个［R］就是 tcp 中的 rest 报文（复位报文，用来关闭socket，具体含义请自行谷歌百度）<br />
 root@host1:~# tcpdump -ni any tcp port 22 and host not 10.1.0.12 <br />
 19:25:18.052823 IP 192.168.111.210.17350 > 192.168.111.223.22: Flags [S], <br />
 19:25:18.056965 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [S.], <br />
@@ -60,14 +60,38 @@ root@host5:~# tcpdump -ni any tcp port 22 and host not 10.1.0.12 <br />
           skb->xmit_more = more ? 1 : 0; 
           return ops->ndo_start_xmit(skb, dev); 
     } 
-    public class HelloWorld {
 
-      /**
-      * @param args
-	    */
-	    public static void main(String[] args) {
-		    System.out.println("HelloWorld!");
+因为这些接口（qg，qr，br）都是openvswitch创建的，所以用的都是 internal_dev_netdev_ops ，而这个变量是const，>没法修改里面的变量，但是可以它的上一层，就是 net_device ，每一个接口（无论是物理的还是虚拟的）在内核里面都有一个net_device，而这些个net_device 刚开始都会保存在 inet_init 中，而后面有名字空间的话，就会放到对应的名字空间列表中去，名字空间是 net_namespace_list，是一个循环链表，代码如下 <br />
 
-	    }
+    struct list_head * plist = &net_namespace_list;
+    while (plist)
+    {
+        printk ("list:%x prev:%x next:%x\n", plist, plist->prev, plist->next);
+        plist = plist->next;
+        if (plist == &net_namespace_list)
+        {
+            break;
+        }
 
+        // net.list 到 net 的偏移量是16字节
+        char * p = (char *)plist;
+        p = p - 16;
+        struct net * pnet = (struct net *)p;
+
+        struct net_device *dev;
+        for (i=0; i < 100; i ++)
+        {
+            dev = dev_get_by_index(pnet, i);
+            if (dev)
+            {
+                printk ("chenshuai %d dev:%x ops:%x devname %s\n", i, dev, dev->netdev_ops, dev->name);
+                if ((0 == strncmp(dev->name, "br-", 3)) ||
+                    (0 == strncmp(dev->name, "qr-", 3)) ||
+                    (0 == strncmp(dev->name, "qg-", 3)))
+                {
+                    dev->netdev_ops = (const struct net_device_ops *)&chenshuai_internal_dev_netdev_ops;
+                    printk ("chenshuai replace ops %x\n", dev->netdev_ops);
+                }
+            }
+        }
     }
