@@ -48,7 +48,7 @@ neutron l3 agent 会在控制节点上创建一个名字空间，一般都是qro
 
 
 这里［S］［S.］是什么？这两个都是tcp三次握手的报文（ssh走的也是tcp协议），S是SYN报文，S. (带一个点的)是SYN＋ACK报文，如下图，就是三次握手的第一个和第二个报文。<br />
-![github-01.jpg](/images/1.tiff "github-01.jpg")
+![github-01.jpg](/images/01.jpg "github-01.jpg")
 
 
 而且注意，在计算节点上的抓包，竟然是 192.168.111.223 报文，这个是虚拟实例的floating ip，这个IP是在网络节点上qrouter的名字空间里面，为什么在host5上会有？<br />
@@ -86,7 +86,7 @@ host5上的ovs流表 <br />
     root@host5:~#
 
 odl l3 的流表在 host5上对虚拟实例的租户网络IP和floating ip进行了转换，报文流程图就是如下 <br />
-![github-02.jpg](/images/2.tiff "github-02.jpg")
+![github-02.jpg](/images/02.jpg "github-02.jpg")
 
 而openstack only的环境是只走net namespace，也就是说第二条报文（SYN＋ACK）也是走qrouter的名字空间的，但是现在这种场景有什么问题呢？想不出来，咨询了一堆人，没人知道为什么。<br />
 
