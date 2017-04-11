@@ -1,147 +1,51 @@
-针对中文,演示Markdown的各种语法
+neutron l3 agent 和 opendaylight l3 同时开启的问题
+=================================================
 
-大标题
-===================================
-  大标题一般显示工程名,类似html的\<h1\><br />
-  你只要在标题下面跟上=====即可
+一个测试用例， 在neutron l3 agent 和 opendaylight l3 同时打开下，ssh 登陆 创建的虚拟机，结果ssh直接被拒绝。<br />
+ <br />
+虚拟机配置，租户网络是 88.88.88.0/24， vxlan类型，floating ip 给虚拟机分配的是192.168.111.223，这台虚拟机分>配在 host5上 <br />
+ <br />
+2d386740-3bb4-4754-9c06-36a6bc0831ea | test51 | ACTIVE | - | Running | net1=88.88.88.4, 192.168.111.223 <br />
+ <br />
+neutron l3 agent 的机制请参考 http://lingxiankong.github.io/blog/2013/11/19/iptables-in-neutron/ <br />
+ <br />
+neutron l3 agent 会在控制节点上创建一个名字空间，一般都是qrouter开头 <br />
+ <br />
+root@host1:~# ip netns exec qrouter-5a367e1d-9162-4b90-af5a-ff4655c7571f ip a <br />
+17: qr-dcedd015-a5: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue state UNKNOWN group default
+link/ether fa:16:3e:91:5f:a0 brd ff:ff:ff:ff:ff:ff <br />
+inet 88.88.88.1/24 brd 88.88.88.255 scope global qr-dcedd015-a5 <br />
+ <br />
+18: qg-5d88ef18-33: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default
+link/ether fa:16:3e:e3:66:3c brd ff:ff:ff:ff:ff:ff <br />
+inet 192.168.111.223/32 brd 192.168.111.223 scope global qg-5d88ef18-33 <br />
 
-
-中标题
------------------------------------
-  中标题一般显示重点项,类似html的\<h2\><br />
-  你只要在标题下面输入------即可
-
-### 小标题
-  小标题类似html的\<h3\><br />
-  小标题的格式如下 ### 小标题<br />
-  注意#和标题字符中间要有空格
-### 标题的等级表示法
-	关于标题的等级表示法，共分为六个等级，显示的文本大小依次减小。不同等级之间以井号#的个数来标识。一级标题有一个#，二级标题有两个#，以此类推。
-		#一级标题
-		##二级标题
-		###三级标题
-		####四级标题
-		#####五级标题
-		######六级标题
-### 注意!!!下面所有语法的提示我都先用小标题提醒了!!!
-
-### 单行文本框
-    这是一个单行的文本框,只要两个Tab再输入文字即可
-
-### 多行文本框
-    这是一个有多行的文本框
-    你可以写入代码等,每行文字只要输入两个Tab再输入文字即可
-    这里你可以输入一段代码
-
-### 比如我们可以在多行文本框里输入一段代码,来一个Java版本的HelloWorld吧
-    public class HelloWorld {
-
-      /**
-      * @param args
-	    */
-	    public static void main(String[] args) {
-		    System.out.println("HelloWorld!");
-
-	    }
-
-    }
-
-### 链接
-1.[点击这里你可以链接到www.google.com](http://www.google.com)<br />
-2.[点击这里我你可以链接到我的博客](http://guoyunsky.iteye.com)<br />
-
-###只是显示百度的图片
-![baidu-images](http://www.baidu.com/img/bdlogo.png "baidu")
-
-###只是显示图片，这里用的是相对路径
-![github-01.jpg](/images/01.jpg "github-01.jpg")
-
-### 显示图片也可以用原生的html标签
-<img src="http://su.bdimg.com/static/superplus/img/logo_white.png" />
-
-###想点击某个图片进入一个网页,比如我想点击github的icorn然后再进入www.github.com
-[![image]](http://www.github.com/)
-[image]: /images/02.jpg "github-02.jpg"
-
-### 文字被些字符包围
-> 文字被些字符包围
->
-> 只要再文字前面加上>空格即可
->
-> 如果你要换行的话,新起一行,输入>空格即可,后面不接文字
-> 但> 只能放在行首才有效
-
-### 文字被些字符包围,多重包围
-> 文字被些字符包围开始
->
-> > 只要再文字前面加上>空格即可
->
->  > > 如果你要换行的话,新起一行,输入>空格即可,后面不接文字
->
-> > > > 但> 只能放在行首才有效
-
-### 部分文字的高亮
-如果你想使一段话部分文字高亮显示，来起到突出强调的作用，那么可以把它用\`\`包围起来。
-注意这不是单引号，而是Tab键和数字1键左边的按键（注意使用英文输入法）。<br />
-	example：
-		Thank`You`. Please `Call` Me `Coder`
-### 代码片段高亮显示
-GitHub的markdown语法还支持部分语言的代码片段高亮显示。只需要在代码的上一行和下一行用\`\`\`标记。
-```Java
-	public static void main(String[] args){} //Java
-```
-```c
-	int main(int argc,char *argv[]) //C
-```
-```javascript
-	document.getElementById("myH1").innerHTML="Welcome to my Homepage";//javascript
-```
-```cpp
-	string &operator+(const string& A,const string& B) //cpp
-```
-
-### list列表条目使用
-写文章时经常会用到list列表条目。GitHub的markdown语法里也支持使用圆点符。编辑的时候使用的是星号*。
-* 国籍：中国
-* 城市：北京
-* 大学：清华大学
-<br/>注意：星号*后面要有一个空格。否则显示为普通星号。
-GitHub还支持多级别的list列表条目：
-* 编程语言
-	* 脚本语言
-		* Python
-
-### 特殊字符处理
-有一些特殊字符如<,#等,只要在特殊字符前面加上转义字符\即可<br />
-你想换行的话其实可以直接用html标签\<br /\>
+我从网络节点(host1)上ssh 实例（192.168.111.223），同时在网络节点和计算节点(host5)上开启抓包 <br />
+ <br />
+网络节点上的抓包，注意这条红色的报文，这个［R］就是 tcp 中的 rest 报文（复位报文，用来关闭socket，具体含义请自行谷歌百度）<br />
+root@host1:~# tcpdump -ni any tcp port 22 and host not 10.1.0.12 <br />
+19:25:18.052823 IP 192.168.111.210.17350 > 192.168.111.223.22: Flags [S], <br />
+19:25:18.056965 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [S.], <br />
+19:25:18.057018 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [S.], <br />
+19:25:18.057049 IP 192.168.111.210.17350 > 192.168.111.223.22: Flags [.], ack 1, <br />
+19:25:18.057117 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [R], <br />
+19:25:19.253970 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [S.], <br />
+19:25:19.253970 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [S.], <br />
+19:25:19.254004 IP 192.168.111.210.17350 > 192.168.111.223.22: Flags [R], <br />
 
 
-### 插入表格
-在Markdown中插入表格比较麻烦，需要Markdown的扩展语法，但是插入HTML就没有那么麻烦了，因此我们可以通过曲线救国的方式来插入表格。
-在Markdown中，`&`符号和`<`会自动转换成HTML。
+计算节点的抓包，注意没有［R］报文，但是时间戳不对，一个是18秒，一个是19秒，而且网络节点上是收到，不是发送<br />
+root@host5:~# tcpdump -ni any tcp port 22 and host not 10.1.0.12 <br />
+ 9:25:18.028119 IP 192.168.111.210.17350 > 88.88.88.4.22: Flags [S], <br />
+19:25:18.031503 IP 88.88.88.4.22 > 192.168.111.210.17350: Flags [S.], <br />
+19:25:18.031598 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [S.], <br />
+19:25:18.031596 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [S.], <br />
+19:25:19.228699 IP 88.88.88.4.22 > 192.168.111.210.17350: Flags [S.], <br />
+19:25:19.228721 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [S.], <br />
+19:25:19.228699 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [S.], <br />
+19:25:19.228963 IP 192.168.111.210.17350 > 88.88.88.4.22: Flags [R], <br />
 
-	<div>
-	    <table border="0">
-		  <tr>
-		    <th>one</th>
-		    <th>two</th>
-		  </tr>
-		  <tr>
-		    <td>Hello</td>
-		    <td>你好</td>
-		  </tr>
-	    </table>
-	</div>
 
-<div>
-        <table border="0">
-	  <tr>
-	    <th>one</th>
-	    <th>two</th>
-	  </tr>
-	  <tr>
-	    <td>Hello</td>
-	    <td>你好</td>
-	  </tr>
-	</table>
-</div>
+这里［S］［S.］是什么？这两个都是tcp三次握手的报文（ssh走的也是tcp协议），S是SYN报文，S. (带一个点的)是SYN＋ACK报文，如下图，就是三次握手的第一个和第二个报文。<br />
+
+而openstack only的环境是只走net namespace，也就是说第二条报文（SYN＋ACK）也是走qrouter的名字空间的，但是现在这种场景有什么问题呢？想不出来，咨询了一堆人，没人知道为什么。<br />
