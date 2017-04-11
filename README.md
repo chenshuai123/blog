@@ -11,27 +11,29 @@ neutron l3 agent 的机制请参考 http://lingxiankong.github.io/blog/2013/11/1
  <br />
 neutron l3 agent 会在控制节点上创建一个名字空间，一般都是qrouter开头 <br />
  <br />
-root@host1:~# ip netns exec qrouter-5a367e1d-9162-4b90-af5a-ff4655c7571f ip a <br />
-17: qr-dcedd015-a5: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue state UNKNOWN group default
-link/ether fa:16:3e:91:5f:a0 brd ff:ff:ff:ff:ff:ff <br />
-inet 88.88.88.1/24 brd 88.88.88.255 scope global qr-dcedd015-a5 <br />
- <br />
-18: qg-5d88ef18-33: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default
-link/ether fa:16:3e:e3:66:3c brd ff:ff:ff:ff:ff:ff <br />
-inet 192.168.111.223/32 brd 192.168.111.223 scope global qg-5d88ef18-33 <br />
+    root@host1:~# ip netns exec qrouter-5a367e1d-9162-4b90-af5a-ff4655c7571f ip a <br />
+    17: qr-dcedd015-a5: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue state UNKNOWN group default
+    link/ether fa:16:3e:91:5f:a0 brd ff:ff:ff:ff:ff:ff <br />
+    inet 88.88.88.1/24 brd 88.88.88.255 scope global qr-dcedd015-a5 <br />
+     <br />
+    18: qg-5d88ef18-33: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default
+    link/ether fa:16:3e:e3:66:3c brd ff:ff:ff:ff:ff:ff <br />
+    inet 192.168.111.223/32 brd 192.168.111.223 scope global qg-5d88ef18-33 <br />
 
 我从网络节点(host1)上ssh 实例（192.168.111.223），同时在网络节点和计算节点(host5)上开启抓包 <br />
  <br />
 网络节点上的抓包，注意这条高亮的报文，这个［R］就是 tcp 中的 rest 报文（复位报文，用来关闭socket，具体含义请自行谷歌百度）<br />
-root@host1:~# tcpdump -ni any tcp port 22 and host not 10.1.0.12 <br />
-19:25:18.052823 IP 192.168.111.210.17350 > 192.168.111.223.22: Flags [S], <br />
-19:25:18.056965 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [S.], <br />
-19:25:18.057018 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [S.], <br />
-19:25:18.057049 IP 192.168.111.210.17350 > 192.168.111.223.22: Flags [.], ack 1, <br />
-`19:25:18.057117 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [R],` <br />
-19:25:19.253970 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [S.], <br />
-19:25:19.253970 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [S.], <br />
-19:25:19.254004 IP 192.168.111.210.17350 > 192.168.111.223.22: Flags [R], <br />
+    root@host1:~# tcpdump -ni any tcp port 22 and host not 10.1.0.12 <br />
+    19:25:18.052823 IP 192.168.111.210.17350 > 192.168.111.223.22: Flags [S], <br />
+    19:25:18.056965 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [S.], <br />
+    19:25:18.057018 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [S.], <br />
+    19:25:18.057049 IP 192.168.111.210.17350 > 192.168.111.223.22: Flags [.], ack 1, <br />
+```
+    19:25:18.057117 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [R], <br />
+```
+    19:25:19.253970 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [S.], <br />
+    19:25:19.253970 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [S.], <br />
+    19:25:19.254004 IP 192.168.111.210.17350 > 192.168.111.223.22: Flags [R], <br />
 
 
 计算节点的抓包，注意没有［R］报文，但是时间戳不对，一个是18秒，一个是19秒，而且网络节点上是收到，不是发送<br />
@@ -95,3 +97,108 @@ root@host5:~# tcpdump -ni any tcp port 22 and host not 10.1.0.12 <br />
             }
         }
     }
+
+
+我重写了一个 chenshuai_internal_dev_netdev_ops 和原来的 internal_dev_netdev_ops 一摸一样，除了 ndo_start_xmit 我把它替换成我的函数，用于抓包，当然抓完报还会继续调用原来的函数  <br />
+
+    typedef int (*fn_internal_dev_xmit)(struct sk_buff *skb, struct net_device *netdev);
+    fn_internal_dev_xmit gfn_internal_dev_xmit;
+    gfn_internal_dev_xmit = kallsyms_lookup_name("internal_dev_xmit”);
+    
+    int chenshuai_internal_dev_xmit(struct sk_buff *skb, struct net_device *netdev)
+    {
+          // 抓包，抓调用栈
+          return (*gfn_internal_dev_xmit)(skb, netdev);
+    }
+
+在qg上抓的调用栈捕获发现 <br />
+第一个 SYN 报文是如下调用栈 <br />
+
+    [59039.551147]  [<ffffffffc069813e>] chenshuai_internal_dev_xmit+0x9e/0xb0 [hello]
+    [59039.551150]  [<ffffffff816abfe9>] dev_hard_start_xmit+0x169/0x3d0
+    [59039.551155]  [<ffffffff816aba70>] ? netif_skb_features+0xb0/0x1e0
+    [59039.551157]  [<ffffffff816abbbe>] ? validate_xmit_skb.isra.95.part.96+0x1e/0x2e0
+    [59039.551159]  [<ffffffff816ac6c0>] __dev_queue_xmit+0x470/0x580
+    [59039.551161]  [<ffffffff816ac7e0>] dev_queue_xmit+0x10/0x20
+    [59039.551163]  [<ffffffff816b508a>] neigh_resolve_output+0x12a/0x230
+    [59039.551169]  [<ffffffff816e7b00>] ? ip_fragment+0x8a0/0x8a0
+    [59039.551171]  [<ffffffff816e7cd8>] ip_finish_output+0x1d8/0x870
+    [59039.551173]  [<ffffffff816e9738>] ip_output+0x68/0xa0
+    [59039.551176]  [<ffffffff816e5149>] ip_forward_finish+0x69/0x80
+    [59039.551178]  [<ffffffff816e54c9>] ip_forward+0x369/0x460
+    [59039.551181]  [<ffffffff816e3261>] ip_rcv_finish+0x81/0x360
+    [59039.551183]  [<ffffffff816e3bd2>] ip_rcv+0x2a2/0x3f0
+
+
+而第三个ACK报文是如下调用栈 <br />
+
+    [59768.419015]  [<ffffffff81707b46>] tcp_v4_send_reset+0x246/0x400
+    [59768.419020]  [<ffffffff816e3540>] ? ip_rcv_finish+0x360/0x360
+    [59768.419022]  [<ffffffff81709412>] tcp_v4_rcv+0x602/0x980
+    [59768.419025]  [<ffffffff816dca24>] ? nf_hook_slow+0x74/0x130
+    [59768.419028]  [<ffffffff816e3540>] ? ip_rcv_finish+0x360/0x360
+    [59768.419031]  [<ffffffff816e35ec>] ip_local_deliver_finish+0xac/0x220
+    [59768.419033]  [<ffffffff816e38f8>] ip_local_deliver+0x48/0x80
+    [59768.419036]  [<ffffffff816e3261>] ip_rcv_finish+0x81/0x360
+    [59768.419038]  [<ffffffff816e3bd2>] ip_rcv+0x2a2/0x3f0
+
+看到了嘛，一个是转发ip_forward，一个是提交到上层ip_local_deliver，也就是提交到本地，本地当然没有这个socket（这个socket是在虚拟实例上的），所以被tcp关掉了。 <br />
+
+那问题是为什么一个走的是转发，一个走的是本地提交，我花了很多时间在 ip_rcv_finish 内部，包括它的寻路机制，ip_forward 内核代码只有一处，结果根本不对，直到我一愤怒，直接在我的ko文件中重编了ip_rcv 和 ip_rcv_finish ，再进行打点才发现，ip_rcv_finish 中 目的端的IP地址已经进行完毕了IP地址的转发， <br />
+
+    ip_rcv 是保存在 全局变量 ip_packet_type 中的，直接替换抓包。
+    p_ip_packet_type = (struct packet_type *)kallsyms_lookup_name("ip_packet_type");
+    pfn_ip_rcv = kallsyms_lookup_name("ip_rcv");
+    p_ip_packet_type->func = chenshuai_mock_ip_rcv;
+
+第一个SYN报文，ip_rcv_finish 中打点 目的IP已经变成了 88.88.88.4， 而第二个ACK报文却还是 192.168.111.223 ，好了，那问题就是为什么 ip_rcv 中没有对第二个ACK报文进行转换目的IP，  <br />
+
+转换IP的代码如下  <br />
+
+        return NF_HOOK(NFPROTO_IPV4, NF_INET_PRE_ROUTING, skb, dev, NULL,
+                       ip_rcv_finish);
+
+
+就是这个 NF_HOOK 。 <br />
+
+里面内容较多，我就不详细介绍了， <br />
+
+修改IP的函数是 iptable_nat_ipv4_in ， 是保存在 全局变量 nf_nat_ipv4_ops 中，直接替换， <br />
+而判断是否需要替换IP的是函数 ipv4_conntrack_in ，是保存在 全局变量 ipv4_conntrack_ops 中，直接替换，其实看到这里基本上就能猜到大致情况了，conntrack 是connection track，就是链接跟踪，SYN＋ACK没有走网络名字空间，出于好奇心继续看看内部是怎么判断的， <br />
+最后发现在 l4proto->packet(ct, skb, dataoff, ctinfo, pf, hooknum, timeouts); 处报错了  <br />
+一看到 l4 我就乐了，l4 不就是 tcp 那一层嘛  <br />
+
+这个函数 tcp_packet ，内部有对每条经过iptables的tcp报文进行判断，并且跟踪状态，而ACK报文在这个函数判断下为非法报文  <br />
+
+        case TCP_CONNTRACK_MAX:
+                /* Special case for SYN proxy: when the SYN to the server or
+                 * the SYN/ACK from the server is lost, the client may transmit
+                 * a keep-alive packet while in SYN_SENT state. This needs to
+                 * be associated with the original conntrack entry in order to
+                 * generate a new SYN with the correct sequence number.
+                 */
+                if (nfct_synproxy(ct) && old_state == TCP_CONNTRACK_SYN_SENT &&
+                    index == TCP_ACK_SET && dir == IP_CT_DIR_ORIGINAL &&
+                    ct->proto.tcp.last_dir == IP_CT_DIR_ORIGINAL &&
+                    ct->proto.tcp.seen[dir].td_end - 1 == ntohl(th->seq)) {
+                        pr_debug("nf_ct_tcp: SYN proxy client keep alive\n");
+                        spin_unlock_bh(&ct->lock);
+                        return NF_ACCEPT;
+                }
+```
+                /* Invalid packet */
+                pr_debug("nf_ct_tcp: Invalid dir=%i index=%u ostate=%u\n",
+                         dir, get_conntrack_index(th), old_state);
+                spin_unlock_bh(&ct->lock);
+                if (LOG_INVALID(net, IPPROTO_TCP))
+                        nf_log_packet(net, pf, 0, skb, NULL, NULL, NULL,
+                                  "nf_ct_tcp: invalid state ");
+                return -NF_ACCEPT;
+```
+
+
+问题基本上就是 第一条SYN报文走的是网络名字空间，所以会在iptables内创建一条记录用于跟踪状态，而SYN＋ACK报文没有走这个网络名字空间，导致这条记录没有做更新，而ACK报文又进入网络名字空间，由于之前记录的状态是SYN报文已发，它等待的状态是SYN＋ACK的报文，不是ACK，所以iptables就认为这条报文是非法，也就不做改目的IP地址的处理，这样就被直接提交到本地tcp层处理，tcp发现本地没有这个socket，就直接关闭。 <br />
+
+关于conntrack 上资料不多，可以参考一下这个， <br />
+http://linux.chinaunix.net/techdoc/net/2009/06/15/1118315.shtml
+
