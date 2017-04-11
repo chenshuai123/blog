@@ -28,7 +28,7 @@ root@host1:~# tcpdump -ni any tcp port 22 and host not 10.1.0.12 <br />
 19:25:18.056965 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [S.], <br />
 19:25:18.057018 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [S.], <br />
 19:25:18.057049 IP 192.168.111.210.17350 > 192.168.111.223.22: Flags [.], ack 1, <br />
-19:25:18.057117 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [R], <br />
+`19:25:18.057117 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [R],` <br />
 19:25:19.253970 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [S.], <br />
 19:25:19.253970 IP 192.168.111.223.22 > 192.168.111.210.17350: Flags [S.], <br />
 19:25:19.254004 IP 192.168.111.210.17350 > 192.168.111.223.22: Flags [R], <br />
@@ -49,3 +49,14 @@ root@host5:~# tcpdump -ni any tcp port 22 and host not 10.1.0.12 <br />
 这里［S］［S.］是什么？这两个都是tcp三次握手的报文（ssh走的也是tcp协议），S是SYN报文，S. (带一个点的)是SYN＋ACK报文，如下图，就是三次握手的第一个和第二个报文。<br />
 
 而openstack only的环境是只走net namespace，也就是说第二条报文（SYN＋ACK）也是走qrouter的名字空间的，但是现在这种场景有什么问题呢？想不出来，咨询了一堆人，没人知道为什么。<br />
+
+好吧，做驱动，抓包抓调用栈，抓包的关键是找到发报的总出口 <br />
+所有的发包都会调用到 __netdev_start_xmit 这个函数，一个回调，看到回调就可以去替换它 <br />
+
+  static inline netdev_tx_t __netdev_start_xmit(const struct net_device_ops *ops, 
+                                                struct sk_buff *skb, struct net_device *dev, 
+                                                bool more) 
+  { 
+          skb->xmit_more = more ? 1 : 0; 
+          return ops->ndo_start_xmit(skb, dev); 
+  } 
