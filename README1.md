@@ -353,21 +353,21 @@ vnet1是虚拟机1的ens8网卡对应的端口， 目的mac address是我在ovs�
     64 bytes from 172.18.3.4: icmp_seq=2 ttl=62 time=0.146 ms
 
 
-两条流表的意思
-第一条
-in_port : 虚拟机1的ens8对应于ovs的端口号
-priority: 比0高就行，否则被NORMAL流表先匹配掉
-ip      : ip 报文
-nw_dst  : 虚拟机2上的vpc2的网络号
-上面四条是匹配
-actions 是开始动作了
-set_field -> eth_dst : 把报文的目的mac地址改成 虚拟机2的ens8的mac地址
-output  : 虚拟机2上的ens8对应于ovs的端口号
-
-第二条
-in_port : 虚拟机2的ens8对应于ovs的端口号
-nw_dst  : 虚拟机1上的vpc1的网络号
-上面四条是匹配
-actions 是开始动作了
-set_field -> eth_dst : 把报文的目的mac地址改成 虚拟机1的ens8的mac地址
-output  : 虚拟机1上的ens8对应于ovs的端口号 
+两条流表的意思 <br />
+第一条 <br />
+in_port : 虚拟机1的ens8对应于ovs的端口号 <br />
+priority: 比0高就行，否则被NORMAL流表先匹配掉 <br />
+ip      : ip 报文<br />
+nw_dst  : 虚拟机2上的vpc2的网络号<br />
+上面四条是匹配<br />
+actions 是开始动作了<br />
+set_field -> eth_dst : 把报文的目的mac地址改成 虚拟机2的ens8的mac地址<br />
+output  : 虚拟机2上的ens8对应于ovs的端口号<br />
+<br />
+第二条<br />
+in_port : 虚拟机2的ens8对应于ovs的端口号<br />
+nw_dst  : 虚拟机1上的vpc1的网络号<br />
+上面四条是匹配<br />
+actions 是开始动作了<br />
+set_field -> eth_dst : 把报文的目的mac地址改成 虚拟机1的ens8的mac地址<br />
+output  : 虚拟机1上的ens8对应于ovs的端口号 <br />
