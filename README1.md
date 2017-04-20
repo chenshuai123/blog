@@ -315,6 +315,9 @@ ECS2
     64 bytes from 172.18.3.4: icmp_seq=2 ttl=64 time=0.018 ms
 
 
+![github-03.jpg](/images/03.jpg "github-03.jpg")
+
+
 开始尝试ping，不通
 
     root@test1:~# ip netns exec testns1 ping 172.18.3.4
