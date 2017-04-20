@@ -156,3 +156,216 @@ ECS2
 那我好奇的是容器报文出了ECS的网卡后，怎么到的另一个ECS？这在阿里云上看不到了，我就自己模拟。
 
 
+我创建了两个虚拟机，虚拟机外部的网络承载在openvswitch上，
+
+物理机上的信息
+
+        Bridge br-test
+            Port "vnet3"
+                Interface "vnet3"
+            Port "vnet1"
+                Interface "vnet1"
+            Port br-test
+                Interface br-test
+                    type: internal
+        ovs_version: "2.0.2"
+    root@ubuntu:~# ifconfig vnet3
+    vnet3     Link encap:Ethernet  HWaddr fe:58:00:98:c0:92
+              inet6 addr: fe80::fc58:ff:fe98:c092/64 Scope:Link
+              UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+              RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+              TX packets:8 errors:0 dropped:0 overruns:0 carrier:0
+              collisions:0 txqueuelen:500
+              RX bytes:0 (0.0 B)  TX bytes:648 (648.0 B)
+    
+    root@ubuntu:~# ifconfig vnet1
+    vnet1     Link encap:Ethernet  HWaddr fe:58:00:98:c0:81
+              inet6 addr: fe80::fc58:ff:fe98:c081/64 Scope:Link
+              UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+              RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+              TX packets:8 errors:0 dropped:0 overruns:0 carrier:0
+              collisions:0 txqueuelen:500
+              RX bytes:0 (0.0 B)  TX bytes:648 (648.0 B)
+    
+    root@ubuntu:~#
+
+虚拟机1
+
+    root@test1:~# ifconfig ens8
+    ens8      Link encap:Ethernet  HWaddr 52:58:00:98:c0:81
+              inet addr:10.10.10.11  Bcast:10.10.10.255  Mask:255.255.255.0
+              inet6 addr: fe80::5058:ff:fe98:c081/64 Scope:Link
+              UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+              RX packets:16 errors:0 dropped:0 overruns:0 frame:0
+              TX packets:7 errors:0 dropped:0 overruns:0 carrier:0
+              collisions:0 txqueuelen:1000
+              RX bytes:1296 (1.2 KB)  TX bytes:578 (578.0 B)
+    
+    root@test1:~# ip route
+    default via 10.10.10.1 dev ens8
+    10.10.10.0/24 dev ens8  proto kernel  scope link  src 10.10.10.11
+
+
+虚拟机2
+
+    root@test2:~# ifconfig ens8
+    ens8      Link encap:Ethernet  HWaddr 52:58:00:98:c0:92
+              inet addr:10.10.10.12  Bcast:10.10.10.255  Mask:255.255.255.0
+              inet6 addr: fe80::5058:ff:fe98:c092/64 Scope:Link
+              UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+              RX packets:8 errors:0 dropped:0 overruns:0 frame:0
+              TX packets:7 errors:0 dropped:0 overruns:0 carrier:0
+              collisions:0 txqueuelen:1000
+              RX bytes:648 (648.0 B)  TX bytes:578 (578.0 B)
+    
+    root@test2:~# ip route
+    default via 10.10.10.1 dev ens8
+    10.10.10.0/24 dev ens8  proto kernel  scope link  src 10.10.10.12
+
+互通
+    root@test1:~# ping 10.10.10.12
+    PING 10.10.10.12 (10.10.10.12) 56(84) bytes of data.
+    64 bytes from 10.10.10.12: icmp_seq=1 ttl=64 time=0.665 ms
+    64 bytes from 10.10.10.12: icmp_seq=2 ttl=64 time=0.183 ms
+    
+    root@test2:~# ping 10.10.10.11
+    PING 10.10.10.11 (10.10.10.11) 56(84) bytes of data.
+    64 bytes from 10.10.10.11: icmp_seq=1 ttl=64 time=0.325 ms
+    64 bytes from 10.10.10.11: icmp_seq=2 ttl=64 time=0.104 ms
+
+
+我比较懒，虚拟机地址就改了最后一个数字，虚拟机1的mac地址是81，虚拟机2的mac地址是92，
+
+这里还缺一个 10.10.10.1 ，那我就在物理机上ovs网桥上再加一个虚拟端口就当作虚拟机的网关用，
+
+    root@ubuntu:~# ovs-vsctl add-port br-test testgw -- set Interface testgw type=internal
+    root@ubuntu:~# ifconfig testgw 10.10.10.1/24 up
+    
+        Bridge br-test
+            Port "vnet3"
+                Interface "vnet3"
+            Port "vnet1"
+                Interface "vnet1"
+            Port br-test
+                Interface br-test
+                    type: internal
+            Port testgw
+                Interface testgw
+                    type: internal
+        ovs_version: "2.0.2"
+
+    root@ubuntu:~# ifconfig testgw
+    testgw    Link encap:Ethernet  HWaddr 46:f8:56:ca:c1:4f
+              inet addr:10.10.10.1  Bcast:10.10.10.255  Mask:255.255.255.0
+              inet6 addr: fe80::44f8:56ff:feca:c14f/64 Scope:Link
+              UP BROADCAST RUNNING  MTU:1500  Metric:1
+              RX packets:58 errors:0 dropped:0 overruns:0 frame:0
+              TX packets:69 errors:0 dropped:0 overruns:0 carrier:0
+              collisions:0 txqueuelen:0
+              RX bytes:4852 (4.8 KB)  TX bytes:8829 (8.8 KB)
+
+
+
+两套虚拟机ping通网关
+
+    root@test1:~# ping 10.10.10.1
+    PING 10.10.10.1 (10.10.10.1) 56(84) bytes of data.
+    64 bytes from 10.10.10.1: icmp_seq=1 ttl=64 time=0.184 ms
+    64 bytes from 10.10.10.1: icmp_seq=2 ttl=64 time=0.061 ms
+    
+    root@test2:~# ping 10.10.10.1
+    PING 10.10.10.1 (10.10.10.1) 56(84) bytes of data.
+    64 bytes from 10.10.10.1: icmp_seq=1 ttl=64 time=0.409 ms
+    64 bytes from 10.10.10.1: icmp_seq=2 ttl=64 time=0.064 ms
+
+
+然后各在虚拟机上创建一个linux bridge，一个网络名字空间和一对veth pair，把一个veth放到名字空间，另一个挂在linux bridge上，以及打开ip转发，
+
+
+    root@test1:~# brctl addbr vpc1
+    root@test1:~# ip netns add testns1
+    root@test1:~# ip link add veth0 type veth peer name veth1
+    root@test1:~# ip link set veth1 netns testns1
+    root@test1:~# ip netns exec testns1 ifconfig veth1 172.18.1.3/24 up
+    root@test1:~# ifconfig veth0 up
+    root@test1:~# ifconfig vpc1 172.18.1.1/24 up
+    root@test1:~# ip netns exec testns1 ip route add default dev veth1 via 172.18.1.1
+    root@test1:~# brctl addif vpc1 veth0
+    root@test1:/# echo 1 > /proc/sys/net/ipv4/ip_forward
+    root@test1:~# ping 172.18.1.3
+    PING 172.18.1.3 (172.18.1.3) 56(84) bytes of data.
+    64 bytes from 172.18.1.3: icmp_seq=1 ttl=64 time=0.111 ms
+    64 bytes from 172.18.1.3: icmp_seq=2 ttl=64 time=0.016 ms
+
+
+    root@test2:~# brctl addbr vpc2
+    root@test2:~# ip netns add testns2
+    root@test2:~# ip link add veth0 type veth peer name veth1
+    root@test2:~# ip link set veth1 netns testns2
+    root@test2:~# ip netns exec testns2 ifconfig veth1 172.18.3.4/24 up
+    root@test2:~# ifconfig veth0 up
+    root@test2:~# ifconfig vpc2 172.18.3.1/24 up
+    root@test2:~# ip netns exec testns2 ip route add default dev veth1 via 172.18.3.1
+    root@test2:~# brctl addif vpc2 veth0
+    root@test2:~# echo 1 > /proc/sys/net/ipv4/ip_forward
+    root@test2:~# ping 172.18.3.4
+    PING 172.18.3.4 (172.18.3.4) 56(84) bytes of data.
+    64 bytes from 172.18.3.4: icmp_seq=1 ttl=64 time=0.022 ms
+    64 bytes from 172.18.3.4: icmp_seq=2 ttl=64 time=0.018 ms
+
+
+开始尝试ping，不通
+    root@test1:~# ip netns exec testns1 ping 172.18.3.4
+    PING 172.18.3.4 (172.18.3.4) 56(84) bytes of data.
+    ^C
+    --- 172.18.3.4 ping statistics ---
+    48 packets transmitted, 0 received, 100% packet loss, time 47377ms
+    
+    root@test1:~#
+
+在物理机上的ovs网桥上抓报
+
+    root@ubuntu:~# tcpdump -e -ni vnet1
+    tcpdump: WARNING: vnet1: no IPv4 address assigned
+    tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+    listening on vnet1, link-type EN10MB (Ethernet), capture size 65535 bytes
+    02:25:34.272625 52:58:00:98:c0:81 > 46:f8:56:ca:c1:4f, ethertype IPv4 (0x0800), length 98: 172.18.1.3 > 172.18.3.4: ICMP echo request, id 3304, seq 357, length 64
+    02:25:35.280601 52:58:00:98:c0:81 > 46:f8:56:ca:c1:4f, ethertype IPv4 (0x0800), length 98: 172.18.1.3 > 172.18.3.4: ICMP echo request, id 3304, seq 358, length 64
+    02:25:36.288584 52:58:00:98:c0:81 > 46:f8:56:ca:c1:4f, ethertype IPv4 (0x0800), length 98: 172.18.1.3 > 172.18.3.4: ICMP echo request, id 3304, seq 359, length 64
+
+vnet1是虚拟机1的ens8网卡对应的端口， 目的mac address是我在ovs网桥上创建的网关的，那现在把它改成虚拟机2的ens8的mac地址，同样地，回来的报文也需要把目的mac address改成虚拟机1的ens8的mac地址
+
+    root@ubuntu:~# ovs-ofctl add-flow br-test "table=0,in_port=3,priority=1,ip,nw_dst=172.18.3.0/24 actions=set_field:52:58:00:98:c0:92->eth_dst,output=4"
+    root@ubuntu:~# ovs-ofctl add-flow br-test "table=0,in_port=4,priority=1,ip,nw_dst=172.18.1.0/24 actions=set_field:52:58:00:98:c0:81->eth_dst,output=3"
+
+    root@ubuntu:~# ovs-ofctl dump-flows br-test
+    NXST_FLOW reply (xid=0x4):
+     cookie=0x0, duration=314.721s, table=0, n_packets=135, n_bytes=13230, idle_age=140, priority=1,ip,in_port=3,nw_dst=172.18.3.0/24 actions=load:0x52580098c092->NXM_OF_ETH_DST[],output:4
+     cookie=0x0, duration=185.804s, table=0, n_packets=7, n_bytes=686, idle_age=140, priority=1,ip,in_port=4,nw_dst=172.18.1.0/24 actions=load:0x52580098c081->NXM_OF_ETH_DST[],output:3
+     cookie=0x0, duration=16253.814s, table=0, n_packets=1134, n_bytes=108519, idle_age=103, priority=0 actions=NORMAL
+    root@ubuntu:~#
+
+    root@test1:~# ip netns exec testns1 ping 172.18.3.4
+    PING 172.18.3.4 (172.18.3.4) 56(84) bytes of data.
+    64 bytes from 172.18.3.4: icmp_seq=1 ttl=62 time=0.288 ms
+    64 bytes from 172.18.3.4: icmp_seq=2 ttl=62 time=0.146 ms
+
+
+两条流表的意思
+第一条
+in_port : 虚拟机1的ens8对应于ovs的端口号
+priority: 比0高就行，否则被NORMAL流表先匹配掉
+ip      : ip 报文
+nw_dst  : 虚拟机2上的vpc2的网络号
+上面四条是匹配
+actions 是开始动作了
+set_field -> eth_dst : 把报文的目的mac地址改成 虚拟机2的ens8的mac地址
+output  : 虚拟机2上的ens8对应于ovs的端口号
+
+第二条
+in_port : 虚拟机2的ens8对应于ovs的端口号
+nw_dst  : 虚拟机1上的vpc1的网络号
+上面四条是匹配
+actions 是开始动作了
+set_field -> eth_dst : 把报文的目的mac地址改成 虚拟机1的ens8的mac地址
+output  : 虚拟机1上的ens8对应于ovs的端口号 
