@@ -340,6 +340,8 @@ ECS2
 
 vnet1是虚拟机1的ens8网卡对应的端口， 目的mac address是我在ovs网桥上创建的网关的，那现在把它改成虚拟机2的ens8的mac地址，同样地，回来的报文也需要把目的mac address改成虚拟机1的ens8的mac地址
 
+第一种法子(用openflow流表):
+
     root@ubuntu:~# ovs-ofctl add-flow br-test "table=0,in_port=3,priority=1,ip,nw_dst=172.18.3.0/24 actions=set_field:52:58:00:98:c0:92->eth_dst,output=4"
     root@ubuntu:~# ovs-ofctl add-flow br-test "table=0,in_port=4,priority=1,ip,nw_dst=172.18.1.0/24 actions=set_field:52:58:00:98:c0:81->eth_dst,output=3"
 
@@ -402,3 +404,17 @@ output  : 虚拟机1上的ens8对应于ovs的端口号 <br />
     root@c17fff8e9667a47969f84740350890d75-node1:~#
 
 有意思，所有的172.19.143.0/24 ip 的mac地址都是 ee:ff:ff:ff:ff:ff ， 其中还包括 172.19.143.253 ，这个在缺省路由，参考了一下阿里的docker网络，这个是他们的vswitch，我猜的没错的话，阿里云的docker的ECS的VPC是由类似sdn的东西来做控制的。
+
+
+删除流表命令：
+    root@ubuntu:~# ovs-ofctl del-flows br-test "table=0,in_port=4"
+    root@ubuntu:~# ovs-ofctl del-flows br-test "table=0,in_port=3"
+
+
+第二种法子（用路由）:
+
+在物理机上加两条路由
+    root@ubuntu:~# ip route add 172.18.1.0/24 dev testgw via 10.10.10.11
+    root@ubuntu:~# ip route add 172.18.3.0/24 dev testgw via 10.10.10.12
+
+意思是 虚拟机1的VPC1的网段就让它走虚拟机1上的ens8的ip去，虚拟机2上的VPC2的网段就让它走虚拟机2上的ens8的ip去。
