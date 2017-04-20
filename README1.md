@@ -223,6 +223,7 @@ ECS2
     10.10.10.0/24 dev ens8  proto kernel  scope link  src 10.10.10.12
 
 互通
+
     root@test1:~# ping 10.10.10.12
     PING 10.10.10.12 (10.10.10.12) 56(84) bytes of data.
     64 bytes from 10.10.10.12: icmp_seq=1 ttl=64 time=0.665 ms
@@ -315,6 +316,7 @@ ECS2
 
 
 开始尝试ping，不通
+
     root@test1:~# ip netns exec testns1 ping 172.18.3.4
     PING 172.18.3.4 (172.18.3.4) 56(84) bytes of data.
     ^C
