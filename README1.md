@@ -407,6 +407,7 @@ output  : 虚拟机1上的ens8对应于ovs的端口号 <br />
 
 
 删除流表命令：
+
     root@ubuntu:~# ovs-ofctl del-flows br-test "table=0,in_port=4"
     root@ubuntu:~# ovs-ofctl del-flows br-test "table=0,in_port=3"
 
@@ -414,6 +415,7 @@ output  : 虚拟机1上的ens8对应于ovs的端口号 <br />
 第二种法子（用路由）:
 
 在物理机上加两条路由
+
     root@ubuntu:~# ip route add 172.18.1.0/24 dev testgw via 10.10.10.11
     root@ubuntu:~# ip route add 172.18.3.0/24 dev testgw via 10.10.10.12
 
