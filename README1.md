@@ -371,3 +371,31 @@ nw_dst  : 虚拟机1上的vpc1的网络号<br />
 actions 是开始动作了<br />
 set_field -> eth_dst : 把报文的目的mac地址改成 虚拟机1的ens8的mac地址<br />
 output  : 虚拟机1上的ens8对应于ovs的端口号 <br />
+
+
+再回来看看阿里云的虚拟机上
+
+    root@c17fff8e9667a47969f84740350890d75-node3:~# arp -n
+    Address                  HWtype  HWaddress           Flags Mask            Iface
+    172.18.1.2               ether   02:42:ac:12:01:02   C                     vpc-600e7
+    172.19.143.161           ether   ee:ff:ff:ff:ff:ff   C                     eth0
+    172.17.0.3               ether   02:42:ac:11:00:03   C                     docker_gwbridge
+    172.19.143.253           ether   ee:ff:ff:ff:ff:ff   C                     eth0
+    172.18.1.3               ether   02:42:ac:12:01:03   C                     vpc-600e7
+    172.19.143.164           ether   ee:ff:ff:ff:ff:ff   C                     eth0
+    172.17.0.4               ether   02:42:ac:11:00:04   C                     docker_gwbridge
+    172.17.0.2               ether   02:42:ac:11:00:02   C                     docker_gwbridge
+    root@c17fff8e9667a47969f84740350890d75-node3:~#
+    
+    root@c17fff8e9667a47969f84740350890d75-node1:~# arp -n
+    Address                  HWtype  HWaddress           Flags Mask            Iface
+    172.17.0.4               ether   02:42:ac:11:00:04   C                     docker_gwbridge
+    172.18.3.2               ether   02:42:ac:12:03:02   C                     vpc-600e7
+    172.18.3.4               ether   02:42:ac:12:03:04   C                     vpc-600e7
+    172.19.143.253           ether   ee:ff:ff:ff:ff:ff   C                     eth0
+    172.19.143.173           ether   ee:ff:ff:ff:ff:ff   C                     eth0
+    172.17.0.3               ether   02:42:ac:11:00:03   C                     docker_gwbridge
+    172.19.143.164           ether   ee:ff:ff:ff:ff:ff   C                     eth0
+    root@c17fff8e9667a47969f84740350890d75-node1:~#
+
+有意思，所有的172.19.143.0/24 ip 的mac地址都是 ee:ff:ff:ff:ff:ff ， 其中还包括 172.19.143.253 ，这个在缺省路由，参考了一下阿里的docker网络，这个是他们的vswitch，我猜的没错的话，阿里云的docker的ECS的VPC是由类似sdn的东西来做控制的。
