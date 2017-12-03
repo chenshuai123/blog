@@ -248,8 +248,15 @@ init_kvm_tdp_mmu中唯一做的事情就是初始化了arch.mmu
     }
 
 Intel EPT相关的VMEXIT有两个：
+
 EPT Misconfiguration：EPT pte配置错误，具体情况参考Intel Manual 3C, 28.2.3.1 EPT Misconfigurations
+
 EPT Violation：当guest VM访存出发到EPT相关的部分，在不产生EPT Misconfiguration的前提下，可能会产生EPT Violation，具体情况参考Intel Manual 3C, 28.2.3.2 EPT Violations
+
 当Guest第一次访问某页面时，首先触发的是Guest OS的page fault，Guest OS会修复好自己mmu的页结构，并且访问对应的GPA，此时由于对应的EPT结构还没有建立，会触发EPT Violation。对于Intel EPT，EPT缺页的处理在函数tdp_page_fault中。
 
 ![github-05.jpg](/images/05.jpg "github-05.jpg")
+
+
+
+
