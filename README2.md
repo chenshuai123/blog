@@ -243,8 +243,11 @@ EPT Violation：当guest VM访存出发到EPT相关的部分，在不产生EPT M
 二. QEMU 和 vhost-user 之间
 
 QEMU code
+
 vhost-backend.c   kernel_ops   调用 ioctl
+
 vhost-user.c      user_ops     调用 vring接口
+
 
 可以看出来一个是内核态用的，一个是给用户态用的（vhost-user，ovs+dpdk）
 
@@ -265,7 +268,8 @@ vhost-user.c      user_ops     调用 vring接口
     }
 
 
-我们这里只看 用户态的 , 即 user_ops , 为什么我这里只列出 .vhost_set_mem_table 和 .vhost_set_vring_addr，一般而言，涉及到内存和地址，永远都是关键，也是最头疼的。
+我们这里只看 用户态的 , 即 user_ops , 
+为什么我这里只列出 .vhost_set_mem_table 和 .vhost_set_vring_addr，一般而言，涉及到内存和地址，永远都是关键，也是最头疼的。
 
 vhost-user 的基础是 vhost-user进程和QEMU进程之间是通过共享内存的。
 
