@@ -40,13 +40,19 @@ Linux code  kvm_types.h 中 有关于对各个地址的描述
 
 先看一下QEMU初始化中涉及内存那块
 
-QEMU（用户态）                                               KVM（内核态）
-1. kvm_init -> ioctl(KVM_CREATE_VM)           对应           kvm_create_vm (申请内存)  
+QEMU（用户态）                对应                            KVM（内核态）
+
+1. kvm_init -> ioctl(KVM_CREATE_VM)           
+   对应           
+   kvm_create_vm (申请内存)  
    kvm->memslots[] = kvm_alloc_memslots()
 
 2. kvm_region_add -> kvm_set_phys_mem
    -> kvm_set_user_memory_region
-   -> kvm_vm_ioctl(KVM_SET_USER_MEMORY_REGION)   对应        __kvm_set_memory_region 设置memslot的base_gfn, npages, userspace_addr
+   -> kvm_vm_ioctl(KVM_SET_USER_MEMORY_REGION)   
+   对应        
+   __kvm_set_memory_region 设置memslot的base_gfn, npages, userspace_addr
+
 
     /* for KVM_SET_USER_MEMORY_REGION */
     struct kvm_userspace_memory_region {
@@ -56,6 +62,7 @@ QEMU（用户态）                                               KVM（内核�
             __u64 memory_size; /* bytes */
             __u64 userspace_addr; /* start of the userspace allocated memory */
     };
+
 
     int __kvm_set_memory_region(struct kvm *kvm,
                     const struct kvm_userspace_memory_region *mem)
@@ -84,7 +91,8 @@ QEMU（用户态）                                               KVM（内核�
         ...
     }
 
-其中 userspace_addr 是 虚拟机对应的QEMU进程中的虚拟地址
+其中 userspace_addr 是 【虚拟机对应的QEMU进程中的虚拟地址】。
+
 update_memslots 把新的 kvm_memory_slot 插入到 kvm_memslots 中去，而install_new_memslots 重新装一下kvm_memslots
 
     update_memslots(slots, &new);
