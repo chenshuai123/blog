@@ -54,6 +54,8 @@ QEMU（用户态）                对应                            KVM（内�
    __kvm_set_memory_region 设置memslot的base_gfn, npages, userspace_addr
 
 
+附上代码
+
     /* for KVM_SET_USER_MEMORY_REGION */
     struct kvm_userspace_memory_region {
             __u32 slot;
@@ -205,5 +207,49 @@ update_memslots 把新的 kvm_memory_slot 插入到 kvm_memslots 中去，而ins
 
     kvm_vm_ioctl_create_vcpu => kvm_arch_vcpu_setup => kvm_mmu_setup => init_kvm_mmu => init_kvm_tdp_mmu
 
+init_kvm_tdp_mmu中唯一做的事情就是初始化了arch.mmu
+
+4. EPT页表建立流程
+
+在虚拟机的入口函数 vcpu_enter_guest 中调用kvm_mmu_reload来完成EPT根页表的初始化。
+
+    static int vcpu_enter_guest(struct kvm_vcpu *vcpu)
+    {
+    ...
+        r = kvm_mmu_reload(vcpu);
+    ...
+    }
 
 
+    static inline int kvm_mmu_reload(struct kvm_vcpu *vcpu)
+    {
+    	if (likely(vcpu->arch.mmu.root_hpa != INVALID_PAGE))
+    		return 0;
+    
+    	return kvm_mmu_load(vcpu);
+    }
+
+
+    int kvm_mmu_load(struct kvm_vcpu *vcpu)
+    {
+    	int r;
+    
+    	r = mmu_topup_memory_caches(vcpu);
+    	if (r)
+    		goto out;
+    	r = mmu_alloc_roots(vcpu);
+    	kvm_mmu_sync_roots(vcpu);
+    	if (r)
+    		goto out;
+    	/* set_cr3() should ensure TLB has been flushed */
+    	vcpu->arch.mmu.set_cr3(vcpu, vcpu->arch.mmu.root_hpa);
+    out:
+    	return r;
+    }
+
+Intel EPT相关的VMEXIT有两个：
+EPT Misconfiguration：EPT pte配置错误，具体情况参考Intel Manual 3C, 28.2.3.1 EPT Misconfigurations
+EPT Violation：当guest VM访存出发到EPT相关的部分，在不产生EPT Misconfiguration的前提下，可能会产生EPT Violation，具体情况参考Intel Manual 3C, 28.2.3.2 EPT Violations
+当Guest第一次访问某页面时，首先触发的是Guest OS的page fault，Guest OS会修复好自己mmu的页结构，并且访问对应的GPA，此时由于对应的EPT结构还没有建立，会触发EPT Violation。对于Intel EPT，EPT缺页的处理在函数tdp_page_fault中。
+
+![github-05.jpg](/images/05.jpg "github-05.jpg")
