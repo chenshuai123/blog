@@ -365,6 +365,7 @@ host_user_addr 是 mmap_addr 加了偏移，因为mmap是通过传过来的句�
             ...
     }
 
+其中
 
     host_phys_addr = rte_mem_virt2phy((void *)(uintptr_t)host_user_addr);
 
